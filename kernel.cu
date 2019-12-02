@@ -93,8 +93,8 @@ void launchKernel(int numK, int numX, float* kxH, float* kyH, float* kzH,
     struct timeval time0;
     struct timeval time1;
     struct timezone tz;
-    long kernelTime = 0;
-    long memoryTime = 0;
+//    long kernelTime = 0;
+//    long memoryTime = 0;
 	//calculate dimension
 	dim3 dim_grid, dim_block;
 	dim_grid.x = numK / BLOCK_SIZE + (numK % BLOCK_SIZE == 0 ? 0 : 1);
@@ -112,7 +112,7 @@ void launchKernel(int numK, int numX, float* kxH, float* kyH, float* kzH,
 		kVals[k].Ky = kyH[k];
 		kVals[k].Kz = kzH[k];
 	}
-    gettimeofday(&time0, &tz);
+//    gettimeofday(&time0, &tz);
 	cudaMemset(*kValsD, 0, numK * sizeof(struct kValues));
 	cudaMemcpy(*kValsD, kVals, numK * sizeof(struct kValues), cudaMemcpyHostToDevice);
 
@@ -122,15 +122,15 @@ void launchKernel(int numK, int numX, float* kxH, float* kyH, float* kzH,
 
 	cudaMalloc(phiID, dim_grid.x * BLOCK_SIZE * sizeof(struct kValues));
 	cudaMemcpy(*phiID, phiIH, numK * sizeof(struct kValues), cudaMemcpyHostToDevice);
-    gettimeofday(&time1, &tz);
-    memoryTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
+//    gettimeofday(&time1, &tz);
+//    memoryTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
 
 	//calculate phiMag
-	gettimeofday(&time0, &tz);
+//	gettimeofday(&time0, &tz);
 	ComputePhiMagGPU<<<dim_grid, dim_block>>> (*kValsD, *phiRD, *phiID);
 	cudaDeviceSynchronize();
-    gettimeofday(&time1, &tz);
-    kernelTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
+//    gettimeofday(&time1, &tz);
+//    kernelTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
 
     //launch kernel
 	//multithreading could be used, but it's not necessary. Even 32*32*32 input(numK=3072) would occupy all threads (2560 for RTX2070) simultaneously, which
@@ -142,17 +142,17 @@ void launchKernel(int numK, int numX, float* kxH, float* kyH, float* kzH,
 		float* globalqrD;
 		float* globalqiD;
 
-        gettimeofday(&time0, &tz);
+//        gettimeofday(&time0, &tz);
 		cudaMalloc(&globalqrD, dim_grid.x * sizeof(float));
 		cudaMalloc(&globalqiD, dim_grid.x * sizeof(float));
-        gettimeofday(&time1, &tz);
-        memoryTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
+//        gettimeofday(&time1, &tz);
+//        memoryTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
 
-        gettimeofday(&time0, &tz);
+//        gettimeofday(&time0, &tz);
 		ComputeQGPU<<<dim_grid, dim_block>>>(globalqrD, globalqiD, *kValsD, xH[indexX], yH[indexX], zH[indexX]);
         cudaDeviceSynchronize();
-        gettimeofday(&time1, &tz);
-        kernelTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
+//        gettimeofday(&time1, &tz);
+//        kernelTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
 
 		//reduction
 		int currentDataNum = dim_grid.x;
@@ -165,25 +165,25 @@ void launchKernel(int numK, int numX, float* kxH, float* kyH, float* kzH,
 			dim_block_reduction.x = REDUCTION_BLOCK_SIZE;
 			dim_block_reduction.y = 1;
 			dim_block_reduction.z = 1;
-            gettimeofday(&time0, &tz);
+//            gettimeofday(&time0, &tz);
 			ImprovedReductionKernel<<<dim_grid_reduction, dim_block_reduction>>>(globalqrD, interval, currentDataNum);
 			ImprovedReductionKernel<<<dim_grid_reduction, dim_block_reduction>>>(globalqiD, interval, currentDataNum);
 			cudaDeviceSynchronize();
-            gettimeofday(&time1, &tz);
-            kernelTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
+//            gettimeofday(&time1, &tz);
+//            kernelTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
 			interval *= REDUCTION_BLOCK_SIZE;
 			currentDataNum = currentDataNum / REDUCTION_BLOCK_SIZE + (currentDataNum % REDUCTION_BLOCK_SIZE == 0 ? 0 : 1);
 		}
 
-        gettimeofday(&time0, &tz);
+//        gettimeofday(&time0, &tz);
 		cudaMemcpy(&(QrH[indexX]), globalqrD, sizeof(float), cudaMemcpyDeviceToHost);
 		cudaMemcpy(&(QiH[indexX]), globalqiD, sizeof(float), cudaMemcpyDeviceToHost);
-        gettimeofday(&time1, &tz);
-        memoryTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
+//        gettimeofday(&time1, &tz);
+//        memoryTime += (time1.tv_sec - time0.tv_sec) * 1000000 + time1.tv_usec - time0.tv_usec;
 	}
 
-    printf("kernel: %ld us\n", kernelTime);
-    printf("IO: %ld us\n", memoryTime);
+//    printf("kernel: %ld us\n", kernelTime);
+//    printf("IO: %ld us\n", memoryTime);
 
 
 }
